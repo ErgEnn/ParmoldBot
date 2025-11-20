@@ -1,3 +1,4 @@
+import random
 from datetime import datetime, timedelta
 import requests
 import pytz
@@ -77,6 +78,10 @@ def get_average_people_count_at_time(time):
 
 
 async def try_handle_mhm(message):
+    if random.random() > 0.05:
+        # allow using mhm more
+        return
+
     if 'mhm' not in message.content.lower():
         return
 

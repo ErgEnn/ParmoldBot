@@ -1,8 +1,11 @@
+import discord
+from discord.ext import commands
+from discord import app_commands
 import ast
 import operator
 import math
-import re
 from timeout import timeout
+
 
 allowed_operators = {
     ast.Add: operator.add,
@@ -28,6 +31,7 @@ allowed_functions = {
     'ceil': math.ceil,
     'round': round
 }
+
 
 def safe_eval(expr):
     """
@@ -70,20 +74,31 @@ def safe_eval(expr):
     return _eval(node)
 
 
-async def try_handle_ace(message):
-    if message.content.startswith('eval'):
-        pattern = r'eval\s*`(.+?)`'
-        match = re.match(pattern, message.content)
-        if match:
-            expression = match.group(1)
-            expression = expression.replace('^', '**')
-            try:
-                with timeout(seconds=5):
-                    result = safe_eval(expression)
-                    await message.reply(f"> {result}")
-            except TimeoutError:
-                await message.reply("Error: Evaluation timed out.")
-            except Exception as e:
-                await message.reply(f"Error evaluating expression: {e}")
-        else:
-            await message.reply("Please enclose the expression in backticks (`).")
+class MathCog(commands.Cog):
+    def __init__(self, bot: commands.Bot):
+        self.bot = bot
+
+    @app_commands.command(name="eval")
+    async def eval_cmd(self, interaction: discord.Interaction, expression: str):
+        """Safely evaluate a mathematical expression
+        
+        Parameters
+        -----------
+        expression: str
+            The mathematical expression to evaluate (e.g., "2 + 2", "sqrt(16)", "sin(pi/2)")
+        """
+        # Replace ^ with ** for power operations
+        expression = expression.replace('^', '**')
+        
+        try:
+            with timeout(seconds=5):
+                result = safe_eval(expression)
+                await interaction.response.send_message(content=f"> {result}")
+        except TimeoutError:
+            await interaction.response.send_message(content="Error: Evaluation timed out.")
+        except Exception as e:
+            await interaction.response.send_message(content=f"Error evaluating expression: {e}")
+
+
+async def setup(bot: commands.Bot):
+    await bot.add_cog(MathCog(bot))

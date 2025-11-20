@@ -27,16 +27,9 @@ async def try_handle_instant_meme(message):
                         logging.info('Message {message_id} didnt contain any faces', message_id=message.id)
                         return None
 
-                    if message.content.startswith('$mask'):
-                        draw_masks_on_faces(img, faces)
-                    elif message.content.startswith('$eyes'):
-                        draw_specific_points_on_faces(img, faces)
-                    elif message.content.startswith('$explainmin'):
-                        draw_letters_on_faces(img, faces, '')
-                    elif message.content.startswith('$explainfull'):
-                        draw_letters_on_faces(img, faces)
-                    else:
-                        draw_overlays_on_faces(img, faces)
+                    # Only run default overlay behavior if no slash commands were used
+                    # (slash commands are handled by meme_commands.py)
+                    draw_overlays_on_faces(img, faces)
 
                     await send_img_to_channel(img, message.channel)
 
@@ -44,13 +37,14 @@ async def try_handle_instant_meme(message):
 def draw_overlays_on_faces(img, faces):
     points_on_faces = get_specific_points_on_faces(img, faces)
 
-    for face in points_on_faces:
+    for idx, face in enumerate(points_on_faces):
         overlay_filename = random.choice(os.listdir(OVERLAYS_FOLDER))
         overlay_path = os.path.join(OVERLAYS_FOLDER, overlay_filename)
 
         overlay = get_img_from_path(overlay_path)
         overlay = transform_overlay(img, overlay)
-        best_overlay = choose_best_overlay_simple(overlay, face)
+        face_landmarks = faces.multi_face_landmarks[idx].landmark
+        best_overlay = choose_best_overlay(overlay, face_landmarks)
         overlay_faces = get_faces(best_overlay, no_of_faces=1)
         points_on_overlay_faces = get_specific_points_on_faces(best_overlay, overlay_faces)
 
@@ -98,60 +92,51 @@ def get_img_from_path(path):
     return overlay_img
 
 
-def choose_best_overlay_simple(overlay, src_eye_points):
-    # Get overlay facial points with validation
-    overlay_faces = get_faces(overlay, no_of_faces=1)
-    overlay_points = get_specific_points_on_faces(overlay, overlay_faces)
+def choose_best_overlay(overlay, src_face_landmarks):
+    def get_face_orientation(landmarks):
+        try:
+            # Use raw normalized coordinates (0-1 range)
+            jaw_x = [lm.x for lm in landmarks[0:17]]  # Jaw points (0-16)
+            min_x = min(jaw_x)
+            max_x = max(jaw_x)
+            face_width = max_x - min_x
 
-    # Check if points are valid
-    if len(overlay_points) == 0 or len(src_eye_points) == 0:
-        logging.info("Error: Invalid eye points detected.")
-        return overlay
+            nose_x = landmarks[4].x
 
-    # Convert to numpy arrays
-    src_left = np.array(src_eye_points[0])
-    src_right = np.array(src_eye_points[1])
-    ovr_left = np.array(overlay_points[0][0])
-    ovr_right = np.array(overlay_points[0][1])
+            face_center = (min_x + max_x) / 2
+            offset = nose_x - face_center
+            offset_ratio = offset / face_width
 
-    # Print the eye points for debugging
-    logging.info(f"Source left eye: {src_left}, Source right eye: {src_right}")
-    logging.info(f"Overlay left eye: {ovr_left}, Overlay right eye: {ovr_right}")
+            logging.debug(f"Nose offset ratio: {offset_ratio:.2f}")
 
-    # Calculate eye vectors
-    src_vector = src_right - src_left
-    ovr_vector = ovr_right - ovr_left
+            if offset_ratio < 0.40:  # Strong right orientation
+                return "right"
+            elif offset_ratio > 0.40:  # Strong left orientation
+                return "left"
+            return "center"
 
-    # Print vectors for debugging
-    logging.info(f"Source vector: {src_vector}")
-    logging.info(f"Overlay vector: {ovr_vector}")
+        except Exception as e:
+            logging.error(f"Orientation error: {str(e)}")
+            return "center"
 
-    # Calculate angle difference using vector dot product
-    cos_theta = np.dot(src_vector, ovr_vector) / (np.linalg.norm(src_vector) * np.linalg.norm(ovr_vector))
-    angle = np.degrees(np.arccos(np.clip(cos_theta, -1.0, 1.0)))
+    # Get source face orientation
+    src_orientation = get_face_orientation(src_face_landmarks)
 
-    # Print angle for debugging
-    logging.info(f"Angle difference: {angle} degrees")
+    # Flip logic - overlay faces right by default
+    should_flip = src_orientation == "left"
 
-    # Calculate horizontal direction similarity
-    src_dx = src_vector[0]
-    ovr_dx = ovr_vector[0]
-    direction_match = np.sign(src_dx) == np.sign(ovr_dx)
+    # Fallback for centered faces using eye landmarks
+    if src_orientation == "center":
+        try:
+            # Landmarks 33 (right eye inner) and 263 (left eye inner)
+            right_eye = src_face_landmarks[33].x
+            left_eye = src_face_landmarks[263].x
+            should_flip = left_eye > right_eye  # Eyes cross center
+        except Exception as e:
+            logging.error(f"Eye fallback error: {str(e)}")
+            should_flip = False
 
-    # Print direction match for debugging
-    logging.info(f"Direction match: {direction_match}")
-
-    # Combine conditions for reliable flipping
-    should_flip = False
-    if abs(angle) > 90:  # Vectors facing opposite directions
-        should_flip = True
-    elif not direction_match and abs(angle) > 30:  # Adjusted threshold for partial mismatch
-        should_flip = True
-
-    # Print the final decision
-    logging.info(f"Should flip: {should_flip}")
-
-    # Flip overlay if necessary
+    logging.info(f"Orientation: {src_orientation}, Flip: {should_flip}")
     return cv2.flip(overlay, 1) if should_flip else overlay
 
 
