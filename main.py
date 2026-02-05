@@ -48,7 +48,7 @@ async def on_ready():
     bot.start_time = start_time  # Store on bot instance for UtilityCog
 
     logging.info(f'We have logged in as {bot.user}')
-    activity = discord.Activity(type=discord.ActivityType.listening, name="AI-Podcast: Poopoo Peepee")
+    activity = discord.Activity(type=discord.ActivityType.watching, name="Moithub")
     await bot.change_presence(status=discord.Status.online, activity=activity)
     try:
         await bot.load_extension("bank")
@@ -59,6 +59,7 @@ async def on_ready():
         await bot.load_extension("meme_commands")
         await bot.load_extension("impersonate_commands")
         await bot.load_extension("math_commands")
+        await bot.load_extension("runedle")
         await bot.tree.sync()
     except Exception as e:
         logging.error(f"Error loading extensions: {e}")
@@ -91,7 +92,7 @@ async def on_message(message):
     if message.author == bot.user:
         return
     try:
-        await try_handle_mhm(message)
+        #await try_handle_mhm(message)
 
         await try_handle_bad_bot(message)
 
