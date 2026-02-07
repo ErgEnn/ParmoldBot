@@ -3,7 +3,6 @@ from discord.ext import commands, tasks
 import os
 import sys
 import traceback
-import seqlog
 import logging
 import gzip
 import random
@@ -11,16 +10,9 @@ from datetime import datetime, date
 
 from gym import try_handle_mhm
 from reputation import try_handle_bad_bot, try_handle_good_bot, try_handle_reaction_bot, try_handle_greeting
-from instantmeme import try_handle_instant_meme
+#from instantmeme import try_handle_instant_meme
 
 logging.basicConfig(level=logging.INFO)
-handler = seqlog.log_to_seq(
-   server_url="http://seq:5341/",
-   api_key="5gFywFBgqKr5OzJhvydH",
-   level=logging.INFO,
-   batch_size=10,
-   auto_flush_timeout=10,
-   override_root_logger=True)
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -48,7 +40,7 @@ async def on_ready():
     bot.start_time = start_time  # Store on bot instance for UtilityCog
 
     logging.info(f'We have logged in as {bot.user}')
-    activity = discord.Activity(type=discord.ActivityType.watching, name="Moithub")
+    activity = discord.Activity(type=discord.ActivityType.streaming, name="Moithub")
     await bot.change_presence(status=discord.Status.online, activity=activity)
     try:
         await bot.load_extension("bank")
@@ -56,7 +48,7 @@ async def on_ready():
         await bot.load_extension("roulette")
         await bot.load_extension("utility")
         await bot.load_extension("reminder_commands")
-        await bot.load_extension("meme_commands")
+        #await bot.load_extension("meme_commands")
         await bot.load_extension("impersonate_commands")
         await bot.load_extension("math_commands")
         await bot.load_extension("runedle")
@@ -67,7 +59,7 @@ async def on_ready():
     cached_channel = bot.get_channel(startup_channel_id)
     if cached_channel:
         word_of_the_day_task.start()
-        await cached_channel.send(f"🔄 PIRRRAAAKIII, ma olen tagasi {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        #await cached_channel.send(f"🔄 PIRRRAAAKIII, ma olen tagasi {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     else:
         logging.error(f"Could not find channel with ID {startup_channel_id}")
 
@@ -100,7 +92,7 @@ async def on_message(message):
 
         await try_handle_reaction_bot(bot, message)
 
-        await try_handle_instant_meme(message)
+        #await try_handle_instant_meme(message)
 
         await try_handle_greeting(message)
 
@@ -111,4 +103,4 @@ async def on_message(message):
     sys.stdout.flush()
 
 
-bot.run(os.environ.get('TOKEN'), log_handler=handler)
+bot.run(os.environ.get('TOKEN'))

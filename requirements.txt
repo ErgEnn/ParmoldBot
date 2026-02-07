@@ -1,8 +1,5 @@
 discord
 pytz
 requests
-numpy
-opencv-python
 mediapipe
 seqlog
-ollama
