@@ -9,7 +9,13 @@ import random
 from datetime import datetime, date
 
 from gym import try_handle_mhm
-from reputation import try_handle_bad_bot, try_handle_good_bot, try_handle_reaction_bot, try_handle_greeting
+from reputation import (
+    load_guild_emojis,
+    try_handle_bad_bot,
+    try_handle_good_bot,
+    try_handle_greeting,
+    try_handle_reaction_bot,
+)
 #from instantmeme import try_handle_instant_meme
 
 logging.basicConfig(level=logging.INFO)
@@ -42,6 +48,8 @@ async def on_ready():
     logging.info(f'We have logged in as {bot.user}')
     activity = discord.Activity(type=discord.ActivityType.streaming, name="Moithub")
     await bot.change_presence(status=discord.Status.online, activity=activity)
+    for guild in bot.guilds:
+        load_guild_emojis(guild)
     try:
         await bot.load_extension("bank")
         await bot.load_extension("blackjack")
@@ -89,7 +97,7 @@ async def on_message(message):
 
         await try_handle_good_bot(bot, message)
 
-        await try_handle_reaction_bot(bot, message)
+        await try_handle_reaction_bot(message)
 
         #await try_handle_instant_meme(message)
 
