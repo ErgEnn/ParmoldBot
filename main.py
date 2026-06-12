@@ -51,7 +51,6 @@ async def on_ready():
         #await bot.load_extension("meme_commands")
         await bot.load_extension("impersonate_commands")
         await bot.load_extension("math_commands")
-        await bot.load_extension("runedle")
         await bot.tree.sync()
     except Exception as e:
         logging.error(f"Error loading extensions: {e}")
