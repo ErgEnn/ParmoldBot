@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from datetime import datetime
+import os
 import pytz
 
 
@@ -30,6 +31,12 @@ class UtilityCog(commands.Cog):
             f"{days}d {hours}h {minutes}m {seconds}s\n"
             f"Alates: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}"
         )
+
+    @app_commands.command(name="version")
+    async def version_cmd(self, interaction: discord.Interaction):
+        """Show the commit hash of the currently running code"""
+        commit = os.environ.get('GIT_COMMIT', 'unknown')
+        await interaction.response.send_message(content=f"Jooksen commitil `{commit}`")
 
     @app_commands.command(name="timeat")
     async def timeat_cmd(self, interaction: discord.Interaction, user: discord.Member):
