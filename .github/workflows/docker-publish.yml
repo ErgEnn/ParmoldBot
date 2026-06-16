@@ -60,3 +60,12 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Trigger deploy on server
+        # Only deploy when a new image was actually published
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+        run: |
+          gh api repos/ergenn/self-hosting/dispatches \
+            -f event_type=parmoldbot-published
