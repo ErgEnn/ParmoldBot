@@ -12,17 +12,48 @@ from urllib.parse import quote
 WOM_URL = 'https://api.wiseoldman.net/v2/players/'
 
 
-def format_osrs_skills(player: dict, emojis: dict) -> str:
+# In-game skill panel, read left to right, top to bottom (3 columns)
+OSRS_SKILL_ORDER = [
+    'attack', 'hitpoints', 'mining',
+    'strength', 'agility', 'smithing',
+    'defence', 'herblore', 'fishing',
+    'ranged', 'thieving', 'cooking',
+    'prayer', 'crafting', 'firemaking',
+    'magic', 'fletching', 'woodcutting',
+    'runecrafting', 'slayer', 'farming',
+    'construction', 'hunter', 'sailing',
+]
+
+
+def format_osrs_skills(player: dict, emojis: dict) -> discord.Embed:
     skills = dict(player['latestSnapshot']['data']['skills'])
     overall = skills.pop('overall')
-    # 3 columns, like the in-game skill panel; inline code keeps the numbers the same width
-    cells = [f"{emojis.get(name, name.capitalize())} `{max(s['level'], 1):>2}`" for name, s in skills.items()]
+    # Skills WOM adds later go to the end instead of disappearing
+    order = [s for s in OSRS_SKILL_ORDER if s in skills] + [s for s in skills if s not in OSRS_SKILL_ORDER]
+    # Inline code keeps the numbers the same width
+    cells = [f"{emojis.get(name, name.capitalize())} `{max(skills[name]['level'], 1):>2}`" for name in order]
     rows = ['\u2003'.join(cells[i:i + 3]) for i in range(0, len(cells), 3)]
-    return (
-        f"**{player['displayName']}** (combat {player['combatLevel']}, total {overall['level']})\n"
-        + '\n'.join(rows) +
-        f"\n-# Wise Old Man, uuendatud {player['updatedAt'][:10]}"
+    embed = discord.Embed(
+        description='\n'.join(rows) + f"\n\nCombat **{player['combatLevel']}** \u00b7 Total **{overall['level']}**",
+        color=0xC8AA6E,
     )
+    embed.set_author(
+        name=player['displayName'],
+        url='https://wiseoldman.net/players/' + quote(player['username'], safe=''),
+    )
+    embed.set_footer(text=f"Wise Old Man, uuendatud {player['updatedAt'][:10]}")
+    return embed
+
+
+def _self_check():
+    levels = {s: {'level': i} for i, s in enumerate(['overall', 'cooking', 'mining', 'hitpoints', 'attack', 'newskill'])}
+    player = {'latestSnapshot': {'data': {'skills': levels}}, 'displayName': 'A', 'username': 'a',
+              'combatLevel': 3, 'updatedAt': '2026-11-21T00:00:00Z'}
+    text = format_osrs_skills(player, {}).description
+    assert text.index('Attack') < text.index('Hitpoints') < text.index('Mining') < text.index('Cooking') < text.index('Newskill')
+
+
+_self_check()
 
 
 def fetch_osrs_icon(skill: str) -> bytes:
@@ -122,7 +153,7 @@ class UtilityCog(commands.Cog):
             return
         skills = [s for s in player['latestSnapshot']['data']['skills'] if s != 'overall']
         emojis = await self.get_osrs_emojis(skills)
-        await interaction.followup.send(content=format_osrs_skills(player, emojis))
+        await interaction.followup.send(embed=format_osrs_skills(player, emojis))
 
     @app_commands.command(name="timeat")
     async def timeat_cmd(self, interaction: discord.Interaction, user: discord.Member):
